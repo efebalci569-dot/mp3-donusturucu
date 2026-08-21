@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flask Uygulaması",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}\\app.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "jinja": true,
+            "env": {
+                "FLASK_APP": "app.py",
+                "FLASK_ENV": "development"
+            }
+        }
+    ]
+}

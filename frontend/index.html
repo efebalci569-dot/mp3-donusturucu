@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 DÖNÜŞTÜRÜCÜM</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo">
+            <i class="fas fa-music"></i>
+            <h1>MP3 DÖNÜŞTÜRÜCÜM</h1>
+        </div>
+        <p class="subtitle">YouTube videolarını MP3'e dönüştür & indir</p>
+    </header>
+
+    <main>
+        <div class="converter-card">
+            <div class="card-header">
+                <i class="fas fa-link"></i>
+                <span>YouTube Linki Yapıştır</span>
+            </div>
+            <div class="input-group">
+                <input type="url" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." autofocus>
+                <button id="convertBtn" class="convert-btn">
+                    <i class="fas fa-download"></i>
+                    <span>İndir & Dönüştür</span>
+                </button>
+            </div>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p class="loading-text">İndiriliyor ve dönüştürülüyor...</p>
+                <p id="progressText" class="progress-text">%0</p>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div id="error" class="error hidden">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorMessage"></span>
+            </div>
+
+            <div id="result" class="result hidden">
+                <div class="result-left">
+                    <div class="result-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="result-info">
+                        <p id="resultTitle" class="result-title"></p>
+                        <p id="resultSize" class="result-size"></p>
+                    </div>
+                </div>
+                <a id="downloadBtn" class="download-btn" download>
+                    <i class="fas fa-download"></i>
+                    İndir
+                </a>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                <h3>Hızlı</h3>
+                <p>Saniyeler içinde dönüşüm</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                <h3>Güvenli</h3>
+                <p>Veri kaydedilmez</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon"><i class="fas fa-headphones"></i></div>
+                <h3>Yüksek Kalite</h3>
+                <p>En iyi MP3 sesi</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon"><i class="fas fa-infinity"></i></div>
+                <h3>Sınırsız</h3>
+                <p>Ücretsiz dönüşüm</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>MP3 DÖNÜŞTÜRÜCÜM &copy; 2026 &mdash; yt-dlp &amp; FFmpeg ile çalışır</p>
+    </footer>
+</div>
+
+<script src="/script.js"></script>
+</body>
+</html>
