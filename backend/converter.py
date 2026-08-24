@@ -247,9 +247,8 @@ def _cleanup_job_dir(job):
             shutil.rmtree(job['dir'], ignore_errors=True)
     except Exception:
         pass
-    if job['status'] == 'error':
-        with _lock:
-            _jobs.pop(job['id'], None)
+    # Hata durumundaki iş kaydı TTL süresince korunur; böylece istemci
+    # gerçek hata mesajını status endpointinden okuyabilir.
 
 
 def sweep_expired():
