@@ -50,6 +50,8 @@ def proxy(path):
         k: v for k, v in request.headers.items()
         if k.lower() not in HOP_BY_HOP and k.lower() != 'x-vercel-forwarded-*'.lower()
     }
+    # Vercel proxy’nin sıkıştırılmış yanıtı başlıksız aktarmasını önle.
+    req_headers['Accept-Encoding'] = 'identity'
 
     try:
         resp = get_client().request(
