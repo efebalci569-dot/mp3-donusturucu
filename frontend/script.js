@@ -11,6 +11,8 @@ const resultSize = document.getElementById('resultSize');
 const downloadBtn = document.getElementById('downloadBtn');
 
 let pollTimer = null;
+let pollAttempts = 0;
+const MAX_POLL_ATTEMPTS = 180;
 
 function setProgress(pct) {
     progressText.textContent = `%${pct}`;
@@ -52,17 +54,25 @@ function showSuccess(title, size, url) {
 }
 
 async function pollStatus(jobId) {
+    pollAttempts += 1;
     try {
-        const res = await fetch(`/api/status/${jobId}`);
-        const data = await res.json();
+        const res = await fetch(`/api/status/${jobId}`, { cache: 'no-store' });
+        const raw = await res.text();
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch {
+            throw new Error(`Sunucu geçersiz yanıt verdi (HTTP ${res.status})`);
+        }
 
-        if (!data.success) {
+        if (!res.ok || !data.success) {
+            if (res.status >= 500 && pollAttempts < MAX_POLL_ATTEMPTS) return;
             showError(data.error || 'İş durumu alınamadı');
             return;
         }
 
-        if (data.status === 'processing' && data.progress > 0) {
-            setProgress(data.progress);
+        if (data.status === 'processing' || data.status === 'queued') {
+            if (data.progress > 0) setProgress(data.progress);
             return;
         }
 
@@ -75,8 +85,12 @@ async function pollStatus(jobId) {
         if (data.status === 'error') {
             showError(data.error || 'Dönüştürme başarısız oldu');
         }
-    } catch {
-        showError('Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+    } catch (err) {
+        if (pollAttempts < MAX_POLL_ATTEMPTS) {
+            progressText.textContent = 'Sunucu uyanıyor, tekrar deneniyor...';
+            return;
+        }
+        showError(err.message || 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
 }
 
@@ -97,6 +111,7 @@ async function convertUrl() {
     }
 
     showLoading();
+    pollAttempts = 0;
 
     try {
         const res = await fetch('/api/convert', {
@@ -107,16 +122,16 @@ async function convertUrl() {
 
         const data = await res.json();
 
-        if (!data.success) {
-            showError(data.error);
+        if (!res.ok || !data.success) {
+            showError(data.error || `Sunucu hatası (HTTP ${res.status})`);
             return;
         }
 
         setProgress(1);
         pollTimer = setInterval(() => pollStatus(data.job_id), 2000);
         pollStatus(data.job_id);
-    } catch {
-        showError('Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+    } catch (err) {
+        showError(err.message || 'Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
     }
 }
 
