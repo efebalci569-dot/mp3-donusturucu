@@ -26,7 +26,9 @@ YOUTUBE_PATTERN = re.compile(
 
 FALLBACK_ARGS = [
     [],
+    ['--extractor-args', 'youtube:player_client=web_safari'],
     ['--extractor-args', 'youtube:player_client=android_vr'],
+    ['--extractor-args', 'youtube:player_client=tv_simply'],
 ]
 
 _lock = threading.Lock()
@@ -145,8 +147,8 @@ def _run_job(job, url):
                 raise RuntimeError('Bu video gizli (private).')
             if 'unavailable' in low or 'not available' in low:
                 raise RuntimeError('Video bulunamadı veya kaldırılmış.')
-            if 'sign in' in low or 'age' in low:
-                raise RuntimeError('Bu video giriş yapmayı gerektiriyor.')
+            if 'sign in' in low or 'login_required' in low or 'age' in low or 'not a bot' in low:
+                raise RuntimeError('YouTube bu video için sunucu doğrulaması istiyor. Başka bir herkese açık video deneyin.')
             raise RuntimeError(err)
 
         try:
@@ -208,8 +210,8 @@ def _run_job(job, url):
             low = last_err.lower()
             if '403' in low or 'forbidden' in low:
                 raise RuntimeError('YouTube indirmeyi engelledi (403). Lütfen tekrar deneyin.')
-            if 'sign in' in low:
-                raise RuntimeError('Bu video giriş yapmayı gerektiriyor.')
+            if 'sign in' in low or 'login_required' in low or 'not a bot' in low:
+                raise RuntimeError('YouTube bu video için sunucu doğrulaması istiyor. Başka bir herkese açık video deneyin.')
             raise RuntimeError(last_err)
 
         filename = f"{sanitize_title(title)}.mp3"
@@ -247,9 +249,8 @@ def _cleanup_job_dir(job):
             shutil.rmtree(job['dir'], ignore_errors=True)
     except Exception:
         pass
-    if job['status'] == 'error':
-        with _lock:
-            _jobs.pop(job['id'], None)
+    # Hata durumundaki iş kaydı TTL süresince korunur; böylece istemci
+    # gerçek hata mesajını status endpointinden okuyabilir.
 
 
 def sweep_expired():

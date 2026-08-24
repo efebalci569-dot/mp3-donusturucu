@@ -1,5 +1,6 @@
 flask
 flask-cors
-yt-dlp
+--pre
+yt-dlp[default]
 imageio-ffmpeg
 gunicorn
