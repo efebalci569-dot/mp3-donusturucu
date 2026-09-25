@@ -114,6 +114,38 @@ def _supports_impersonate():
     return _impersonate_support_cache
 
 
+def _cookies_candidates():
+    cands = []
+    env_path = (os.environ.get('YTDLP_COOKIES_FILE') or '').strip()
+    if env_path:
+        cands.append(env_path)
+    cands += [
+        os.path.join(BASE_DIR, 'cookies.txt'),
+        os.path.join(BASE_DIR, 'appcookies.txt'),
+        os.path.join(os.getcwd(), 'cookies.txt'),
+        os.path.join(os.getcwd(), 'appcookies.txt'),
+        '/etc/secrets/cookies.txt',
+        '/etc/secrets/appcookies.txt',
+        '/app/cookies.txt',
+    ]
+    seen, out = set(), []
+    for c in cands:
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def resolve_cookies_file():
+    for c in _cookies_candidates():
+        try:
+            if c and os.path.isfile(c):
+                return c
+        except Exception:
+            pass
+    return None
+
+
 def _base_args():
     args = ['yt-dlp', '--remote-components', 'ejs:github', '--no-playlist']
     if shutil.which('node'):
@@ -131,8 +163,8 @@ def _base_args():
     cookies_browser = os.environ.get('YTDLP_COOKIES_FROM_BROWSER')
     if cookies_browser:
         args += ['--cookies-from-browser', cookies_browser]
-    cookies_file = os.environ.get('YTDLP_COOKIES_FILE')
-    if cookies_file and os.path.exists(cookies_file):
+    cookies_file = resolve_cookies_file()
+    if cookies_file:
         args += ['--cookies', cookies_file]
     return args
 
@@ -158,15 +190,16 @@ def resolve_ffmpeg():
 
 
 def debug_info():
-    cookies_file = os.environ.get('YTDLP_COOKIES_FILE', '')
+    resolved = resolve_cookies_file()
     return {
         'yt_dlp_version': _ytdlp_version(),
         'ffmpeg': bool(resolve_ffmpeg()),
         'pot_provider': _has_pot_provider(),
         'impersonate': _supports_impersonate(),
         'node': bool(shutil.which('node')),
-        'cookies_file_set': bool(cookies_file),
-        'cookies_file_exists': bool(cookies_file and os.path.exists(cookies_file)),
+        'cookies_file_env': os.environ.get('YTDLP_COOKIES_FILE', ''),
+        'cookies_file_resolved': resolved or '',
+        'cookies_file_exists': bool(resolved),
         'max_jobs': MAX_CONCURRENT_JOBS,
     }
 
@@ -231,11 +264,11 @@ def _friendly_error(raw):
 
 def _fetch_info(url):
     last_err = 'Video bilgisi alınamadı'
-    cookies_file = os.environ.get('YTDLP_COOKIES_FILE', '')
+    cookies_file = resolve_cookies_file()
     _log(
         f'info start yt-dlp={_ytdlp_version()} '
         f'pot={_has_pot_provider()} impersonate={_supports_impersonate()} '
-        f'cookies={"var" if cookies_file and os.path.exists(cookies_file) else "yok"}'
+        f'cookies={cookies_file or "yok"}'
     )
     for i, extra in enumerate(FALLBACK_ARGS):
         label = ' '.join(extra) if extra else 'default-web'
