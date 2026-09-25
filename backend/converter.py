@@ -288,11 +288,15 @@ def _is_bot_check(text):
     return any(m in low for m in markers)
 
 
-def _should_try_next_client(text):
+def _is_terminal_error(text):
+    # Sadece gerçekten terminal hata zinciri durdurur (gizli video hiçbir istemcide açılmaz).
+    # unavailable / no-formats / bot-check gibi her şeyde SONRAKİ istemci denenir.
     low = (text or '').lower()
-    if '403' in low or 'forbidden' in low:
-        return True
-    return _is_bot_check(text)
+    return 'private' in low
+
+
+def _should_try_next_client(text):
+    return not _is_terminal_error(text)
 
 
 def _friendly_error(raw):
