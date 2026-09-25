@@ -39,6 +39,13 @@ def health():
     })
 
 
+@app.route('/api/debug')
+def debug():
+    info = converter.debug_info()
+    info['status'] = 'ok'
+    return jsonify(info)
+
+
 @app.route('/api/convert', methods=['POST'])
 def convert():
     data = request.get_json(silent=True)
@@ -54,6 +61,7 @@ def convert():
                         'error': 'Geçerli bir YouTube linki girin (youtube.com veya youtu.be)'}), 400
 
     job = converter.start_job(url)
+    print(f'[api] convert start url={url[:80]} job={job["id"]}', flush=True)
     return jsonify({'success': True, 'job_id': job['id']}), 202
 
 

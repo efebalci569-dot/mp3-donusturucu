@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -24,16 +25,33 @@ YOUTUBE_PATTERN = re.compile(
     r'|youtu\.be/[\w\-]{5,})'
 )
 
+# Render gibi datacenter IP'leri web istemcide anında bot-check yer.
+# Mobil istemciler (android/ios/mweb) çok daha toleranslıdır.
+# Sırayla dene: hangisi çalışırsa dur.
 FALLBACK_ARGS = [
-    [],
-    ['--extractor-args', 'youtube:player_client=web_safari'],
+    ['--extractor-args', 'youtube:player_client=android'],
+    ['--extractor-args', 'youtube:player_client=ios'],
+    ['--extractor-args', 'youtube:player_client=mweb'],
+    [],  # varsayılan web istemci (PO Token provider burada devreye girer)
     ['--extractor-args', 'youtube:player_client=android_vr'],
-    ['--extractor-args', 'youtube:player_client=tv_simply'],
 ]
+
+YT_USER_AGENT = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/131.0.0.0 Safari/537.36'
+)
 
 _lock = threading.Lock()
 _jobs = {}
 _executor = None
+
+_ytdlp_version_cache = None
+_impersonate_support_cache = None
+
+
+def _log(msg):
+    print(f'[converter] {msg}', flush=True, file=sys.stderr)
 
 
 def _get_executor():
@@ -53,10 +71,63 @@ def sanitize_title(t):
     return t[:80] or 'video'
 
 
+def _ytdlp_version():
+    global _ytdlp_version_cache
+    if _ytdlp_version_cache is not None:
+        return _ytdlp_version_cache
+    try:
+        r = subprocess.run(
+            ['yt-dlp', '--version'],
+            capture_output=True, text=True, timeout=15
+        )
+        _ytdlp_version_cache = r.stdout.strip() if r.returncode == 0 else 'unknown'
+    except Exception:
+        _ytdlp_version_cache = 'unknown'
+    return _ytdlp_version_cache
+
+
+def _has_pot_provider():
+    try:
+        import bgutil.ytdlp_pot_provider  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _supports_impersonate():
+    global _impersonate_support_cache
+    if _impersonate_support_cache is not None:
+        return _impersonate_support_cache
+    try:
+        import curl_cffi  # noqa: F401
+    except Exception:
+        _impersonate_support_cache = False
+        return False
+    try:
+        r = subprocess.run(
+            ['yt-dlp', '--help'],
+            capture_output=True, text=True, timeout=15
+        )
+        _impersonate_support_cache = 'impersonate' in (r.stdout + r.stderr).lower()
+    except Exception:
+        _impersonate_support_cache = False
+    return _impersonate_support_cache
+
+
 def _base_args():
     args = ['yt-dlp', '--remote-components', 'ejs:github', '--no-playlist']
     if shutil.which('node'):
         args += ['--js-runtime', 'node']
+    # Datacenter engeline karşı temel sağlamlaştırma
+    args += [
+        '--retries', '3',
+        '--fragment-retries', '3',
+        '--socket-timeout', '15',
+        '--force-ipv4',
+        '--user-agent', YT_USER_AGENT,
+    ]
+    if _supports_impersonate():
+        args += ['--impersonate', 'chrome']
     cookies_browser = os.environ.get('YTDLP_COOKIES_FROM_BROWSER')
     if cookies_browser:
         args += ['--cookies-from-browser', cookies_browser]
@@ -86,6 +157,20 @@ def resolve_ffmpeg():
         return None
 
 
+def debug_info():
+    cookies_file = os.environ.get('YTDLP_COOKIES_FILE', '')
+    return {
+        'yt_dlp_version': _ytdlp_version(),
+        'ffmpeg': bool(resolve_ffmpeg()),
+        'pot_provider': _has_pot_provider(),
+        'impersonate': _supports_impersonate(),
+        'node': bool(shutil.which('node')),
+        'cookies_file_set': bool(cookies_file),
+        'cookies_file_exists': bool(cookies_file and os.path.exists(cookies_file)),
+        'max_jobs': MAX_CONCURRENT_JOBS,
+    }
+
+
 def _extract_error(stderr_text, default):
     for line in (stderr_text or '').split('\n'):
         if 'ERROR' in line:
@@ -93,23 +178,87 @@ def _extract_error(stderr_text, default):
     return default
 
 
+def _is_bot_check(text):
+    low = (text or '').lower()
+    markers = (
+        'sign in to confirm',
+        "confirm you're not a bot",
+        'confirm you are not a bot',
+        'server verification',
+        'sunucu do',
+        'po token',
+        'po_token',
+        'nsig',
+        'did not get video data',
+        'unable to extract player',
+        'player response',
+    )
+    return any(m in low for m in markers)
+
+
+def _should_try_next_client(text):
+    low = (text or '').lower()
+    if '403' in low or 'forbidden' in low:
+        return True
+    return _is_bot_check(text)
+
+
+def _friendly_error(raw):
+    raw = (raw or '').strip()
+    low = raw.lower()
+    if not raw:
+        return 'Video bilgisi alınamadı'
+    # 1. Bot doğrulaması -> kullanıcının gördüğü ana hata
+    if _is_bot_check(raw):
+        return (
+            'YouTube bu video için sunucu doğrulaması istiyor. '
+            'Başka bir herkese açık video deneyin. '
+            '(Sunucu IP’si YouTube tarafından engellendi — cookies dosyası eklenirse düzelir.)'
+        )
+    if 'private' in low:
+        return 'Bu video gizli (private).'
+    if 'unavailable' in low or 'not available' in low:
+        return 'Video bulunamadı veya kaldırılmış.'
+    if 'age' in low and ('confirm' in low or 'sign' in low):
+        return 'Bu video yaş doğrulaması istiyor, dönüştürülemez.'
+    if 'sign in' in low or 'login required' in low or 'log in' in low:
+        return 'Bu video giriş yapmayı gerektiriyor.'
+    if '403' in low or 'forbidden' in low:
+        return 'YouTube indirmeyi engelledi (403). Lütfen tekrar deneyin.'
+    # ham mesajı kısaltıp döndür (logda tamamı var)
+    return raw[:300]
+
+
 def _fetch_info(url):
     last_err = 'Video bilgisi alınamadı'
-    for extra in FALLBACK_ARGS:
+    cookies_file = os.environ.get('YTDLP_COOKIES_FILE', '')
+    _log(
+        f'info start yt-dlp={_ytdlp_version()} '
+        f'pot={_has_pot_provider()} impersonate={_supports_impersonate()} '
+        f'cookies={"var" if cookies_file and os.path.exists(cookies_file) else "yok"}'
+    )
+    for i, extra in enumerate(FALLBACK_ARGS):
+        label = ' '.join(extra) if extra else 'default-web'
         try:
             r = subprocess.run(
                 _base_args() + extra + ['--dump-json', url],
                 capture_output=True, text=True, timeout=60
             )
         except subprocess.TimeoutExpired:
+            _log(f'info deneme {i} [{label}] timeout')
             continue
         if r.returncode == 0:
             try:
-                return r.stdout.strip().split('\n')[0], None
+                line = r.stdout.strip().split('\n')[0]
+                _log(f'info deneme {i} [{label}] OK')
+                return line, None
             except Exception:
                 pass
         last_err = _extract_error(r.stderr, last_err)
-    return None, last_err
+        _log(f'info deneme {i} [{label}] FAIL: {last_err[:200]}')
+        if not _should_try_next_client(last_err):
+            break
+    return None, _friendly_error(last_err)
 
 
 def start_job(url):
@@ -142,13 +291,6 @@ def _run_job(job, url):
 
         info_json, err = _fetch_info(url)
         if err:
-            low = err.lower()
-            if 'private' in low:
-                raise RuntimeError('Bu video gizli (private).')
-            if 'unavailable' in low or 'not available' in low:
-                raise RuntimeError('Video bulunamadı veya kaldırılmış.')
-            if 'sign in' in low or 'login_required' in low or 'age' in low or 'not a bot' in low:
-                raise RuntimeError('YouTube bu video için sunucu doğrulaması istiyor. Başka bir herkese açık video deneyin.')
             raise RuntimeError(err)
 
         try:
@@ -157,13 +299,14 @@ def _run_job(job, url):
             raise RuntimeError('Video bilgisi çözümlenemedi')
 
         title = info.get('title') or 'Bilinmeyen Video'
-        video_id = info.get('id') or uuid.uuid4().hex[:11]
         job['title'] = title
+        _log(f'job {job["id"]} title="{title[:60]}"')
 
         output_tpl = os.path.join(job['dir'], '%(id)s.%(ext)s')
         last_err = 'İndirme başarısız'
 
-        for extra in FALLBACK_ARGS:
+        for i, extra in enumerate(FALLBACK_ARGS):
+            label = ' '.join(extra) if extra else 'default-web'
             cmd = (
                 _base_args() + extra +
                 ['-x', '--audio-format', 'mp3', '--audio-quality', '0',
@@ -173,6 +316,7 @@ def _run_job(job, url):
                  '--output', output_tpl,
                  url]
             )
+            _log(f'job {job["id"]} indirme deneme {i} [{label}]')
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding='utf-8', errors='replace',
@@ -196,23 +340,21 @@ def _run_job(job, url):
                 elif 'ERROR' in line:
                     failed = True
                     last_err = line.strip()
+                    _log(f'job {job["id"]} ERROR: {last_err[:300]}')
             code = proc.wait(timeout=30)
 
             if code == 0 and not failed:
+                _log(f'job {job["id"]} indirme OK (deneme {i})')
                 break
 
-            low = last_err.lower()
-            if not any(k in low for k in ('403', 'forbidden')):
+            if not _should_try_next_client(last_err):
+                _log(f'job {job["id"]} tekrar denenemez hata, duruluyor')
                 break
+            _log(f'job {job["id"]} deneme {i} başarısız, sonraki istemci deneniyor')
 
         mp3_files = [f for f in os.listdir(job['dir']) if f.endswith('.mp3')]
         if not mp3_files:
-            low = last_err.lower()
-            if '403' in low or 'forbidden' in low:
-                raise RuntimeError('YouTube indirmeyi engelledi (403). Lütfen tekrar deneyin.')
-            if 'sign in' in low or 'login_required' in low or 'not a bot' in low:
-                raise RuntimeError('YouTube bu video için sunucu doğrulaması istiyor. Başka bir herkese açık video deneyin.')
-            raise RuntimeError(last_err)
+            raise RuntimeError(_friendly_error(last_err))
 
         filename = f"{sanitize_title(title)}.mp3"
         size_mb = os.path.getsize(os.path.join(job['dir'], mp3_files[0])) / (1024 * 1024)
@@ -225,6 +367,7 @@ def _run_job(job, url):
     except Exception as e:
         job['status'] = 'error'
         job['error'] = str(e) or 'Dönüştürme başarısız'
+        _log(f'job {job["id"]} FAILED: {job["error"][:300]}')
         _cleanup_job_dir(job)
 
 
@@ -249,8 +392,9 @@ def _cleanup_job_dir(job):
             shutil.rmtree(job['dir'], ignore_errors=True)
     except Exception:
         pass
-    # Hata durumundaki iş kaydı TTL süresince korunur; böylece istemci
-    # gerçek hata mesajını status endpointinden okuyabilir.
+    if job['status'] == 'error':
+        with _lock:
+            _jobs.pop(job['id'], None)
 
 
 def sweep_expired():

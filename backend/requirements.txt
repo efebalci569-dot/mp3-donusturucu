@@ -1,6 +1,7 @@
 flask
 flask-cors
---pre
-yt-dlp[default]
+yt-dlp>=2025.12.8
+bgutil-ytdlp-pot-provider
+curl_cffi
 imageio-ffmpeg
 gunicorn

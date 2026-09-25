@@ -14,6 +14,7 @@ HOP_BY_HOP = {
 }
 
 client = None
+download_client = None
 
 
 def get_client():
@@ -21,11 +22,24 @@ def get_client():
     if client is None:
         client = httpx.Client(
             base_url=BACKEND_URL,
-            timeout=httpx.Timeout(55.0, connect=10.0),
+            # Vercel Hobby'de fonksiyon ~10sn'de kesilir; poll akışı hızlı olmalı
+            timeout=httpx.Timeout(25.0, connect=10.0),
             follow_redirects=True,
             limits=httpx.Limits(max_keepalive_connections=5)
         )
     return client
+
+
+def get_download_client():
+    global download_client
+    if download_client is None:
+        download_client = httpx.Client(
+            base_url=BACKEND_URL,
+            timeout=httpx.Timeout(55.0, connect=10.0),
+            follow_redirects=True,
+            limits=httpx.Limits(max_keepalive_connections=5)
+        )
+    return download_client
 
 
 @app.route('/', defaults={'path': ''},
@@ -50,11 +64,11 @@ def proxy(path):
         k: v for k, v in request.headers.items()
         if k.lower() not in HOP_BY_HOP and k.lower() != 'x-vercel-forwarded-*'.lower()
     }
-    # Vercel proxy’nin sıkıştırılmış yanıtı başlıksız aktarmasını önle.
-    req_headers['Accept-Encoding'] = 'identity'
 
     try:
-        resp = get_client().request(
+        # /api/download/* büyük dosya taşır -> uzun timeout; diğerleri (convert/status) kısa
+        http_client = get_download_client() if target_path.startswith('/api/download') else get_client()
+        resp = http_client.request(
             method=request.method,
             url=target_path,
             params=params,
