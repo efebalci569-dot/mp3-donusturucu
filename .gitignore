@@ -14,7 +14,9 @@ env/
 .env.*
 !.env.example
 cookies.txt
+cookies_render.txt
 **/cookies.txt
+**/cookies_render.txt
 *.cookies
 
 # Temporary and generated files
