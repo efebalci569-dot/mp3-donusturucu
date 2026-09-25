@@ -90,14 +90,26 @@ def _ytdlp_version():
 
 
 def _has_pot_provider():
-    for mod in ('bgutil.ytdlp_pot_provider', 'bgutil_ytdlp_pot_provider',
-                'ytdlp_pot_provider', 'bgutil'):
-        try:
-            __import__(mod)
-            return True
-        except Exception:
-            pass
+    # Plugin pip paketi olarak kuruluysa yt-dlp otomatik yükler (import yolu yok).
+    try:
+        from importlib import metadata as md
+        for d in md.distributions():
+            name = ((d.metadata.get('Name') or '').lower())
+            if 'bgutil' in name and 'pot' in name:
+                return True
+    except Exception:
+        pass
     return False
+
+
+def _pot_server_ok():
+    import socket
+    try:
+        s = socket.create_connection(('127.0.0.1', 4416), timeout=3)
+        s.close()
+        return True
+    except Exception:
+        return False
 
 
 def _supports_impersonate():
@@ -239,6 +251,7 @@ def debug_info():
         'yt_dlp_version': _ytdlp_version(),
         'ffmpeg': bool(resolve_ffmpeg()),
         'pot_provider': _has_pot_provider(),
+        'pot_server': _pot_server_ok(),
         'impersonate': _supports_impersonate(),
         'node': bool(shutil.which('node')),
         'cookies_file_env': os.environ.get('YTDLP_COOKIES_FILE', ''),
