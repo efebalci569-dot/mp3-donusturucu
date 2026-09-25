@@ -34,6 +34,9 @@ FALLBACK_ARGS = [
     ['--extractor-args', 'youtube:player_client=mweb'],
     [],  # varsayılan web istemci (PO Token provider burada devreye girer)
     ['--extractor-args', 'youtube:player_client=android_vr'],
+    # PO Token plugin kuruluysa (bgutil) web istemciyle token'lı deneme
+    ['--extractor-args', 'youtube:player_client=web',
+     '--extractor-args', 'youtube:po_token=auto'],
 ]
 
 YT_USER_AGENT = (
@@ -87,11 +90,14 @@ def _ytdlp_version():
 
 
 def _has_pot_provider():
-    try:
-        import bgutil.ytdlp_pot_provider  # noqa: F401
-        return True
-    except Exception:
-        return False
+    for mod in ('bgutil.ytdlp_pot_provider', 'bgutil_ytdlp_pot_provider',
+                'ytdlp_pot_provider', 'bgutil'):
+        try:
+            __import__(mod)
+            return True
+        except Exception:
+            pass
+    return False
 
 
 def _supports_impersonate():
