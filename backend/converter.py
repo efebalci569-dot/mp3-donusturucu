@@ -244,6 +244,28 @@ def _cookies_diag():
     return {'exists': True, 'bytes': size, 'entries': lines, 'youtube_entries': yt}
 
 
+def _pot_entrypoints():
+    try:
+        from importlib import metadata as md
+        eps = md.entry_points()
+        groups = [eps] if not hasattr(eps, 'select') else None
+        found = []
+        if hasattr(eps, 'select'):
+            for ep in eps.select():
+                n = f'{ep.group}:{ep.name}'.lower()
+                if 'pot' in n or 'bgutil' in n or 'youtube' in n:
+                    found.append(f'{ep.group}:{ep.name}')
+        else:
+            for group, lst in eps.items():
+                for ep in lst:
+                    n = f'{group}:{ep.name}'.lower()
+                    if 'pot' in n or 'bgutil' in n:
+                        found.append(f'{group}:{ep.name}')
+        return sorted(set(found))[:20]
+    except Exception as e:
+        return [f'hata: {e}']
+
+
 def _installed_yt_pkgs():
     try:
         from importlib import metadata as md
@@ -272,6 +294,7 @@ def debug_info():
         'cookies_file_exists': bool(resolved),
         'cookies': _cookies_diag(),
         'packages': _installed_yt_pkgs(),
+        'pot_entrypoints': _pot_entrypoints(),
         'max_jobs': MAX_CONCURRENT_JOBS,
     }
 
