@@ -420,14 +420,13 @@ def build_download_response_path(job_id):
 
 
 def _cleanup_job_dir(job):
+    # Sadece dosyaları sil; kayıt dursun ki /api/status gerçek hatayı gösterebilsin.
+    # Kayıt temizliğini sweep_expired (TTL) yapar.
     try:
         if os.path.exists(job['dir']):
             shutil.rmtree(job['dir'], ignore_errors=True)
     except Exception:
         pass
-    if job['status'] == 'error':
-        with _lock:
-            _jobs.pop(job['id'], None)
 
 
 def sweep_expired():
