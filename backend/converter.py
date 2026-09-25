@@ -36,9 +36,8 @@ FALLBACK_ARGS = [
     ['--extractor-args', 'youtube:player_client=android_vr'],
     ['--extractor-args', 'youtube:player_client=tv_embedded'],
     ['--extractor-args', 'youtube:player_client=web_embedded'],
-    # PO Token plugin kuruluysa (bgutil) web istemciyle token'lı deneme
-    ['--extractor-args', 'youtube:player_client=web',
-     '--extractor-args', 'youtube:po_token=auto'],
+    # NOT: PO Token sağlayıcı (bgutil sunucusu) web denemelerinde otomatik kullanılır,
+    # ekstra parametre gerekmez.
 ]
 
 INVIDIOUS_INSTANCES = [
@@ -357,6 +356,11 @@ def _friendly_error(raw):
         return 'Bu video giriş yapmayı gerektiriyor.'
     if '403' in low or 'forbidden' in low:
         return 'YouTube indirmeyi engelledi (403). Lütfen tekrar deneyin.'
+    if 'no video formats' in low:
+        return (
+            'YouTube bu IP adresine oynatılabilir veri vermiyor. '
+            'Ev internetinden çalıştırmak veya proxy kullanmak gerekir.'
+        )
     # ham mesajı kısaltıp döndür (logda tamamı var)
     return raw[:300]
 
