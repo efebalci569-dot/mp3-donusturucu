@@ -321,7 +321,7 @@ def _friendly_error(raw):
     return raw[:300]
 
 
-def _fetch_info(url):
+def _fetch_info(url, job=None):
     last_err = 'Video bilgisi alınamadı'
     cookies_file = resolve_cookies_file()
     _log(
@@ -343,14 +343,24 @@ def _fetch_info(url):
             try:
                 line = r.stdout.strip().split('\n')[0]
                 _log(f'info deneme {i} [{label}] OK')
+                _note(job, f'info {label}: OK')
                 return line, None
             except Exception:
                 pass
         last_err = _extract_error(r.stderr, last_err)
         _log(f'info deneme {i} [{label}] FAIL: {last_err[:200]}')
+        _note(job, f'info {label}: {last_err[:150]}')
         if not _should_try_next_client(last_err):
             break
     return None, _friendly_error(last_err)
+
+
+def _note(job, msg):
+    if job is not None:
+        try:
+            job.setdefault('log', []).append(msg[:200])
+        except Exception:
+            pass
 
 
 def start_job(url):
@@ -366,6 +376,7 @@ def start_job(url):
         'filename': None,
         'size_mb': None,
         'error': None,
+        'log': [],
         'created_at': time.time(),
     }
     with _lock:
@@ -381,7 +392,7 @@ def _run_job(job, url):
         if not ffmpeg:
             raise RuntimeError('FFmpeg bulunamadı. FFMPEG_PATH ayarlayın.')
 
-        info_json, err = _fetch_info(url)
+        info_json, err = _fetch_info(url, job)
         if err:
             raise RuntimeError(err)
 
@@ -437,12 +448,15 @@ def _run_job(job, url):
 
             if code == 0 and not failed:
                 _log(f'job {job["id"]} indirme OK (deneme {i})')
+                _note(job, f'dl {label}: OK')
                 break
 
             if not _should_try_next_client(last_err):
                 _log(f'job {job["id"]} tekrar denenemez hata, duruluyor')
+                _note(job, f'dl {label}: DUR ({last_err[:120]})')
                 break
             _log(f'job {job["id"]} deneme {i} başarısız, sonraki istemci deneniyor')
+            _note(job, f'dl {label}: {last_err[:150]}')
 
         mp3_files = [f for f in os.listdir(job['dir']) if f.endswith('.mp3')]
         if not mp3_files:

@@ -77,7 +77,8 @@ def status(job_id):
         'title': job['title'],
         'size_mb': job['size_mb'],
         'filename': job['filename'],
-        'error': job['error']
+        'error': job['error'],
+        'log': job.get('log', [])
     })
 
 
