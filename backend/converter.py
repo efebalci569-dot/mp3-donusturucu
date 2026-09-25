@@ -219,6 +219,20 @@ def _cookies_diag():
     return {'exists': True, 'bytes': size, 'entries': lines, 'youtube_entries': yt}
 
 
+def _installed_yt_pkgs():
+    try:
+        from importlib import metadata as md
+        out = []
+        for d in md.distributions():
+            name = (d.metadata.get('Name') or '')
+            low = name.lower()
+            if any(k in low for k in ('yt-dlp', 'bgutil', 'pot', 'curl_cffi', 'curl-cffi')):
+                out.append(f'{name} {d.version}')
+        return sorted(out)
+    except Exception as e:
+        return [f'hata: {e}']
+
+
 def debug_info():
     resolved = resolve_cookies_file()
     return {
@@ -231,6 +245,7 @@ def debug_info():
         'cookies_file_resolved': resolved or '',
         'cookies_file_exists': bool(resolved),
         'cookies': _cookies_diag(),
+        'packages': _installed_yt_pkgs(),
         'max_jobs': MAX_CONCURRENT_JOBS,
     }
 
