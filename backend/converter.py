@@ -189,6 +189,30 @@ def resolve_ffmpeg():
         return None
 
 
+def _cookies_diag():
+    # İçeriği sızdırmadan sadece sayaçlar: dosya boş mu, youtube satırı var mı?
+    path = resolve_cookies_file()
+    if not path:
+        return {'exists': False}
+    try:
+        size = os.path.getsize(path)
+    except Exception:
+        size = -1
+    lines, yt = 0, 0
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                s = line.strip()
+                if not s or s.startswith('#'):
+                    continue
+                lines += 1
+                if 'youtube.com' in s or 'google.com' in s:
+                    yt += 1
+    except Exception:
+        pass
+    return {'exists': True, 'bytes': size, 'entries': lines, 'youtube_entries': yt}
+
+
 def debug_info():
     resolved = resolve_cookies_file()
     return {
@@ -200,6 +224,7 @@ def debug_info():
         'cookies_file_env': os.environ.get('YTDLP_COOKIES_FILE', ''),
         'cookies_file_resolved': resolved or '',
         'cookies_file_exists': bool(resolved),
+        'cookies': _cookies_diag(),
         'max_jobs': MAX_CONCURRENT_JOBS,
     }
 
