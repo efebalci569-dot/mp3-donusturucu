@@ -116,6 +116,9 @@ class SetupState:
     def fail(self, message):
         with self._lock:
             self._error = message
+            for step in self._steps.values():
+                if step['state'] == 'downloading':
+                    step['state'] = 'error'
 
     @property
     def ready(self):

@@ -12,6 +12,8 @@
 <body>
 
 <div class="container">
+    <a id="updateBanner" class="update-banner hidden" target="_blank" rel="noopener"></a>
+
     <header>
         <div class="logo">
             <i class="fas fa-music"></i>
@@ -25,6 +27,12 @@
             <div class="card-header">
                 <i class="fas fa-link"></i>
                 <span>YouTube Linki Yapıştır</span>
+            </div>
+            <div id="setup" class="setup hidden">
+                <p class="setup-title">İlk kurulum: araçlar indiriliyor</p>
+                <ul id="setupSteps" class="setup-steps"></ul>
+                <p id="setupError" class="setup-error hidden"></p>
+                <button id="setupRetry" class="convert-btn hidden">Tekrar dene</button>
             </div>
             <div class="input-group">
                 <input type="url" id="urlInput" placeholder="https://www.youtube.com/watch?v=..." autofocus>

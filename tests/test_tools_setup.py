@@ -84,6 +84,8 @@ def test_run_setup_network_error_sets_message(tmp_path, ffmpeg_stub):
     st = tools.SetupState()
     assert tools.run_setup(st, tmp_path / "bin", "Linux", "x86_64", opener=opener, run=fail_run) is None
     assert st.to_dict()["error"] == tools.SETUP_NETWORK_MSG and st.ready is False
+    # yarıda kalan adım "indiriliyor %0"da takılı görünmemeli
+    assert st.to_dict()["steps"]["ytdlp"]["state"] == "error"
 
 
 def test_run_setup_success_returns_paths(tmp_path, ffmpeg_stub):
