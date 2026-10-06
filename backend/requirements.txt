@@ -1,7 +1,2 @@
-flask
-flask-cors
-yt-dlp>=2025.12.8
-bgutil-ytdlp-pot-provider
-curl_cffi
-imageio-ffmpeg
-gunicorn
+flask>=3.0
+imageio-ffmpeg>=0.6

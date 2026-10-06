@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 DÖNÜŞTÜRÜCÜM</title>
+    <meta name="description" content="YouTube videolarını MP3'e dönüştüren ücretsiz masaüstü uygulaması. Windows, macOS ve Linux.">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo">
+            <i class="fas fa-music"></i>
+            <h1>MP3 DÖNÜŞTÜRÜCÜM</h1>
+        </div>
+        <p class="subtitle">YouTube videolarını MP3'e dönüştüren ücretsiz masaüstü uygulaması</p>
+    </header>
+
+    <main>
+        <section class="card download-card">
+            <div class="card-header">
+                <i class="fas fa-download"></i>
+                <span id="detectedLabel">Uygulamayı indir</span>
+            </div>
+            <div id="primary" class="primary"></div>
+            <p id="primaryHint" class="hint hidden"></p>
+        </section>
+
+        <section class="steps">
+            <div class="step">
+                <span class="step-no">1</span>
+                <h3>İndir ve kur</h3>
+                <p>Bilgisayarına uygun dosyayı indir.</p>
+            </div>
+            <div class="step">
+                <span class="step-no">2</span>
+                <h3>Aç</h3>
+                <p>Uygulama tarayıcında açılır. İlk açılışta gerekli araçları bir kez indirir.</p>
+            </div>
+            <div class="step">
+                <span class="step-no">3</span>
+                <h3>Linki yapıştır</h3>
+                <p>YouTube linkini yapıştır, MP3 İndirilenler klasörüne iner.</p>
+            </div>
+        </section>
+
+        <section class="card guide">
+            <div class="card-header">
+                <i class="fas fa-circle-info"></i>
+                <span>İlk açılış rehberi</span>
+            </div>
+
+            <details id="guide-windows">
+                <summary><i class="fab fa-windows"></i> Windows</summary>
+                <ol>
+                    <li><code>MP3Donusturucum-Windows-Kurulum.exe</code> dosyasını aç.</li>
+                    <li>"Windows kişisel bilgisayarınızı korudu" uyarısı çıkarsa <strong>Ek bilgi</strong> → <strong>Yine de çalıştır</strong>'a tıkla. Uygulama imzasız olduğu için bu uyarı normal.</li>
+                    <li>Kurulum bitince uygulama tarayıcında açılır. Sonra Başlat menüsünden "MP3 Dönüştürücüm" ile açabilirsin.</li>
+                </ol>
+            </details>
+
+            <details id="guide-mac">
+                <summary><i class="fab fa-apple"></i> macOS</summary>
+                <ol>
+                    <li>Zip dosyasını aç ve <code>MP3Donusturucum</code> uygulamasını <strong>Uygulamalar</strong> klasörüne sürükle.</li>
+                    <li>Uygulamayı çift tıklayarak açmayı dene. "Açılamıyor" uyarısında <strong>Bitti</strong>'ye bas.</li>
+                    <li><strong>Sistem Ayarları</strong> → <strong>Gizlilik ve Güvenlik</strong> → aşağıdaki <strong>Yine de Aç</strong> düğmesine bas ve parolanı gir.</li>
+                    <li>Sonraki açılışlar normal çalışır. Uygulamanın Dock'ta simgesi görünmez; tarayıcında açılır.</li>
+                </ol>
+            </details>
+
+            <details id="guide-linux">
+                <summary><i class="fab fa-linux"></i> Linux</summary>
+                <ol>
+                    <li>Arşivi aç: <code>tar -xzf MP3Donusturucum-Linux-x64.tar.gz</code></li>
+                    <li>Çıkan klasördeki uygulamayı çalıştır: <code>./MP3Donusturucum/MP3Donusturucum</code></li>
+                    <li>Uygulama varsayılan tarayıcında açılır.</li>
+                </ol>
+            </details>
+
+            <p class="guide-note">Sekmeyi kapattığında uygulama birkaç dakika içinde kendiliğinden kapanır.</p>
+        </section>
+
+        <section class="card">
+            <div class="card-header">
+                <i class="fas fa-layer-group"></i>
+                <span>Tüm platformlar</span>
+            </div>
+            <ul id="allPlatforms" class="platforms"></ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>YouTube'dan içerik indirmek YouTube kullanım şartlarına aykırı olabilir; uygulama kişisel kullanım içindir.</p>
+        <p><a href="https://github.com/efebalci569-dot/mp3-donusturucu">GitHub</a> &middot; yt-dlp &amp; FFmpeg ile çalışır</p>
+    </footer>
+</div>
+
+<script src="/script.js"></script>
+</body>
+</html>

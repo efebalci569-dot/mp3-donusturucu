@@ -9,8 +9,17 @@ const result = document.getElementById('result');
 const resultTitle = document.getElementById('resultTitle');
 const resultSize = document.getElementById('resultSize');
 const downloadBtn = document.getElementById('downloadBtn');
+const setupBox = document.getElementById('setup');
+const setupSteps = document.getElementById('setupSteps');
+const setupError = document.getElementById('setupError');
+const setupRetry = document.getElementById('setupRetry');
+const updateBanner = document.getElementById('updateBanner');
+
+const STEP_LABELS = { ffmpeg: 'FFmpeg', ytdlp: 'yt-dlp', deno: 'Deno' };
+const NOT_READY_MSG = 'Uygulama hâlâ hazırlanıyor, birazdan tekrar dene.';
 
 let pollTimer = null;
+let setupReady = false;
 
 function setProgress(pct) {
     progressText.textContent = `%${pct}`;
@@ -28,7 +37,7 @@ function showLoading() {
 
 function hideLoading() {
     loading.classList.add('hidden');
-    convertBtn.disabled = false;
+    convertBtn.disabled = !setupReady;
     convertBtn.innerHTML = '<i class="fas fa-download"></i><span>İndir & Dönüştür</span>';
     if (pollTimer) {
         clearInterval(pollTimer);
@@ -59,10 +68,9 @@ async function parseJsonSafe(res) {
     try {
         return JSON.parse(text);
     } catch {
-        const head = text.slice(0, 120).replace(/\s+/g, ' ');
         throw new Error(
-            `Sunucudan JSON dışı yanıt geldi (HTTP ${res.status}): ${head} — ` +
-            `BACKEND_URL yanlış backend'i gösteriyor olabilir`
+            `Uygulamadan beklenmeyen yanıt geldi (HTTP ${res.status}). ` +
+            `Uygulamayı kapatıp yeniden açmayı dene.`
         );
     }
 }
@@ -98,6 +106,11 @@ async function pollStatus(jobId) {
 
 async function convertUrl() {
     const url = urlInput.value.trim();
+
+    if (!setupReady) {
+        showError(NOT_READY_MSG);
+        return;
+    }
 
     if (!url) {
         showError('Lütfen bir YouTube linki girin');
@@ -148,5 +161,88 @@ urlInput.addEventListener('keydown', e => {
 urlInput.addEventListener('input', () => {
     if (!error.classList.contains('hidden')) error.classList.add('hidden');
 });
+
+function stepText(step) {
+    if (step.state === 'ready') return 'hazır ✓';
+    if (step.state === 'downloading') return `%${step.progress}`;
+    if (step.state === 'error') return 'hata';
+    return 'bekliyor';
+}
+
+function renderSetup(data) {
+    // Sabit sıra: JSON anahtarları alfabetik gelir.
+    const names = Object.keys(STEP_LABELS).filter(n => data.steps[n]);
+    setupSteps.replaceChildren(...names.map(name => {
+        const step = data.steps[name];
+        const li = document.createElement('li');
+        li.className = step.state;
+        const label = document.createElement('span');
+        label.textContent = STEP_LABELS[name] || name;
+        const state = document.createElement('span');
+        state.textContent = stepText(step);
+        li.append(label, state);
+        return li;
+    }));
+
+    setupError.textContent = data.error || '';
+    setupError.classList.toggle('hidden', !data.error);
+    setupRetry.classList.toggle('hidden', !data.error);
+
+    if (data.update && data.update.available) {
+        updateBanner.textContent = `Yeni sürüm var (${data.update.version}) — indirmek için tıkla`;
+        updateBanner.href = data.update.url;
+        updateBanner.classList.remove('hidden');
+    }
+
+    setupReady = data.ready;
+    setupBox.classList.toggle('hidden', data.ready);
+    if (loading.classList.contains('hidden')) convertBtn.disabled = !setupReady;
+}
+
+async function pollSetup() {
+    try {
+        const res = await fetch('/api/setup');
+        const data = await parseJsonSafe(res);
+        renderSetup(data);
+        if (data.ready) {
+            // Hazır olduktan sonra güncelleme bilgisi geç gelebilir; bir süre daha seyrek sor.
+            setTimeout(pollUpdateOnce, 15000);
+            return;
+        }
+        if (data.error) return;
+    } catch {
+        // Uygulama henüz yanıt vermiyor olabilir; tekrar dene.
+    }
+    setTimeout(pollSetup, 1000);
+}
+
+async function pollUpdateOnce() {
+    try {
+        const res = await fetch('/api/setup');
+        renderSetup(await parseJsonSafe(res));
+    } catch {
+        // önemli değil
+    }
+}
+
+setupRetry.addEventListener('click', async () => {
+    setupRetry.classList.add('hidden');
+    setupError.classList.add('hidden');
+    try {
+        await fetch('/api/setup/retry', { method: 'POST' });
+    } catch {
+        // pollSetup hatayı yeniden gösterecek
+    }
+    setTimeout(pollSetup, 500);
+});
+
+function heartbeat() {
+    fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+}
+
+convertBtn.disabled = true;
+heartbeat();
+setInterval(heartbeat, 10000);
+pollSetup();
 
 urlInput.focus();

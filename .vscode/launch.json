@@ -2,17 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Flask Uygulaması",
+            "name": "MP3 Dönüştürücüm",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}\\app.py",
+            "program": "${workspaceFolder}/backend/launcher.py",
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "jinja": true,
-            "env": {
-                "FLASK_APP": "app.py",
-                "FLASK_ENV": "development"
-            }
+            "console": "integratedTerminal"
         }
     ]
 }

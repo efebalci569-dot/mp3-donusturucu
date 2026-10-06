@@ -1,0 +1,308 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #0a0a0f;
+    --bg-card: #12121a;
+    --bg-hover: #1a1a28;
+    --border: #2a2a3e;
+    --accent: #00d95f;
+    --accent-hover: #00b850;
+    --accent-dim: rgba(0, 217, 95, 0.08);
+    --text: #ffffff;
+    --text-secondary: #9090aa;
+    --text-muted: #5a5a70;
+    --error: #ff4444;
+    --radius: 16px;
+    --radius-sm: 12px;
+    --shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+    background-image: radial-gradient(ellipse at 30% 40%, rgba(0, 217, 95, 0.03) 0%, transparent 60%);
+}
+
+.container {
+    width: 100%;
+    max-width: 620px;
+    margin-top: 20px;
+}
+
+/* HEADER */
+header {
+    text-align: center;
+    margin-bottom: 36px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 10px;
+    user-select: none;
+}
+
+.logo i {
+    font-size: 34px;
+    color: var(--accent);
+    filter: drop-shadow(0 0 24px rgba(0, 217, 95, 0.35));
+    animation: heartbeat 2.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+.logo h1 {
+    font-size: 26px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), #00ff88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.3px;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 15px;
+}
+
+a {
+    color: var(--accent);
+}
+
+main {
+    display: grid;
+    gap: 20px;
+}
+
+/* KARTLAR */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.card-header i {
+    color: var(--accent);
+    font-size: 15px;
+}
+
+/* İNDİRME */
+.primary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 24px;
+}
+
+.download-btn {
+    flex: 1 1 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--accent), #00b850);
+    color: #0a0a0f;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0, 217, 95, 0.3);
+}
+
+.download-btn i {
+    font-size: 18px;
+}
+
+.hint {
+    margin: -8px 24px 20px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.other-note {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* ADIMLAR */
+.steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.step {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 18px 14px;
+    text-align: center;
+}
+
+.step-no {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.step h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.step p {
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* REHBER */
+.guide details {
+    border-bottom: 1px solid var(--border);
+}
+
+.guide summary {
+    padding: 14px 24px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.guide summary i {
+    width: 20px;
+    color: var(--accent);
+}
+
+.guide ol {
+    padding: 0 24px 16px 48px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.guide li + li {
+    margin-top: 6px;
+}
+
+.guide strong {
+    color: var(--text);
+}
+
+code {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+}
+
+.guide-note {
+    padding: 14px 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* TÜM PLATFORMLAR */
+.platforms {
+    list-style: none;
+}
+
+.platforms li + li {
+    border-top: 1px solid var(--border);
+}
+
+.platform-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    color: var(--text);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.platform-link:hover {
+    background: var(--bg-hover);
+}
+
+.platform-link i {
+    width: 20px;
+    color: var(--accent);
+}
+
+/* FOOTER */
+footer {
+    text-align: center;
+    margin-top: 36px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.7;
+    padding-bottom: 20px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+@media (max-width: 640px) {
+    body { padding: 16px; }
+    .container { margin-top: 10px; }
+    .logo i { font-size: 28px; }
+    .logo h1 { font-size: 22px; }
+    .subtitle { font-size: 13px; }
+    .primary { padding: 18px; }
+    .steps { grid-template-columns: 1fr; }
+    .card-header, .guide summary, .platform-link, .guide-note { padding-left: 18px; padding-right: 18px; }
+    .guide ol { padding-left: 40px; padding-right: 18px; }
+    .hint { margin-left: 18px; margin-right: 18px; }
+}
+
+@media (max-width: 400px) {
+    .logo h1 { font-size: 18px; }
+}
