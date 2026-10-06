@@ -1,177 +1,69 @@
-# MP3 Dönüştürücü
+# MP3 Dönüştürücüm
 
-YouTube bağlantılarından ses dosyası indirip MP3 formatına dönüştüren, modern bir web arayüzüne sahip full-stack uygulama.
+YouTube videolarını MP3'e dönüştüren ücretsiz masaüstü uygulaması. Windows, macOS ve Linux'ta
+çalışır. Uygulama kullanıcının kendi bilgisayarında çalışır ve kendi tarayıcısında açılır;
+indirme kullanıcının kendi internet bağlantısıyla yapılır.
 
-> **Mimari notu:** Proje iki parçalı çalışır. Frontend ve API proxy Vercel’de, FFmpeg ve yt-dlp kullanan asıl dönüştürme servisi ise sürekli çalışan Docker backend üzerinde yayınlanır. MP3 dönüştürme işlemini yalnızca Vercel Serverless Function içine koymak güvenilir değildir; bu nedenle backend ayrı tutulmuştur.
+**İndir:** [mp3-donusturucu.vercel.app](https://mp3-donusturucu.vercel.app)
 
-## Özellikler
+## Neden masaüstü uygulaması?
 
-| Özellik | Açıklama |
-|---|---|
-| YouTube URL doğrulama | Yalnızca desteklenen YouTube bağlantı biçimleri kabul edilir. |
-| MP3 dönüştürme | yt-dlp ile kaynak alınır, FFmpeg ile MP3 çıktısı hazırlanır. |
-| Asenkron iş akışı | Dönüştürme başlatıldığında anında `job_id` döner; frontend ilerlemeyi sorgular. |
-| İlerleme göstergesi | Kullanıcı dönüştürme yüzdesini ve işlem durumunu görür. |
-| Geçici dosya temizliği | Eski işler otomatik olarak temizlenir. |
-| Docker backend | FFmpeg, Node.js ve Python bağımlılıkları Docker imajında tanımlıdır. |
-| Vercel frontend | Statik arayüz ve API proxy Vercel üzerinden yayınlanabilir. |
+İlk sürüm Vercel + Render üzerinde çalışan bir web sitesiydi. YouTube, veri merkezi IP
+adreslerine video akışı vermediği için ("Sign in to confirm you're not a bot", "No video
+formats found") sunucu tarafında indirme güvenilir değildi. Her kullanıcı kendi ev
+internetinden indirince bu engel ortadan kalkıyor; sunucu, cookies ve hesap riski de kalmıyor.
 
-## Proje Mimarisi
+## Nasıl çalışır
 
-```text
-Kullanıcı tarayıcısı
-        │
-        │ /api/convert, /api/status, /api/download
-        ▼
-Vercel
-  ├── frontend/          Statik kullanıcı arayüzü
-  └── api/proxy.py       BACKEND_URL üzerinden proxy
-        │
-        ▼
-Docker Backend
-  ├── backend/app.py     Flask API
-  ├── backend/converter.py
-  ├── yt-dlp             Video/ses kaynağını alır
-  └── FFmpeg             MP3 dönüştürmesini yapar
+```
+MP3Donusturucum (PyInstaller paketi)
+  launcher.py   tek kopya kontrolü, boş port, tarayıcıyı açar, sekme kapanınca kapanır
+  app.py        Flask, yalnızca 127.0.0.1
+  converter.py  iş kuyruğu, yt-dlp çağrısı, ilerleme
+  tools.py      yt-dlp ve Deno'yu ilk açılışta indirir / günceller, ffmpeg'i hazırlar
+  frontend/     arayüz
+
+Kullanıcı veri klasörü (Windows %LOCALAPPDATA%\MP3Donusturucum,
+macOS ~/Library/Application Support/MP3Donusturucum, Linux ~/.local/share/mp3donusturucum)
+  bin/          yt-dlp, deno, ffmpeg
+  jobs/         geçici dosyalar
+  log.txt       günlük (sorun bildirirken ekleyin)
 ```
 
-## Klasör Yapısı
+- ffmpeg pakete gömülüdür (`imageio-ffmpeg`).
+- yt-dlp ve Deno (yt-dlp'nin YouTube için kullandığı JavaScript çalıştırıcısı) ilk açılışta
+  resmi GitHub sürümlerinden indirilir (~60 MB, bir kez). yt-dlp her açılışta kendini günceller.
+- Sekme kapatıldıktan sonra, çalışan iş yoksa uygulama en geç üç dakika içinde kapanır.
 
-```text
-.
-├── api/
-│   ├── proxy.py
-│   └── requirements.txt
-├── backend/
-│   ├── app.py
-│   ├── converter.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html
-│   ├── script.js
-│   └── style.css
-├── vercel.json
-├── calistir.bat
-├── .gitignore
-└── README.md
-```
-
-## Yerel Kurulum
-
-### Gereksinimler
-
-Yerel kullanım için Python 3.11 veya üzeri, FFmpeg ve Node.js gereklidir. Python paketlerini aşağıdaki komutla kurabilirsin:
+## Geliştirme
 
 ```bash
-cd backend
-python -m venv .venv
+py -3.11 -m venv .venv
+.venv/Scripts/python -m pip install -r backend/requirements.txt -r requirements-dev.txt
+.venv/Scripts/python backend/launcher.py      # uygulamayı çalıştır
+.venv/Scripts/python -m pytest -q             # testler
 ```
 
-Windows:
+Yerelde paket derlemek için:
 
 ```bash
-.venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
+.venv/Scripts/pyinstaller packaging/mp3donusturucum.spec --noconfirm
+.venv/Scripts/python packaging/smoke_test.py dist/MP3Donusturucum/MP3Donusturucum.exe
 ```
 
-Linux/macOS:
+## Yayınlama
+
+Dört platform paketi GitHub Actions'ta derlenir (`.github/workflows/release.yml`). PR'larda
+sadece derlenir; sürüm etiketi push edilince GitHub Release oluşturulur:
 
 ```bash
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-Backend varsayılan olarak `http://127.0.0.1:8000` adresinde açılır. Windows’ta proje klasöründeki `calistir.bat` dosyası da kullanılabilir.
+İndirme sitesi (`site/`) Vercel'de yayınlanır ve her zaman en son Release'e bağlantı verir.
 
-## API Endpoint’leri
+## Not
 
-| Endpoint | Method | Açıklama |
-|---|---:|---|
-| `/api/health` | `GET` | Backend ve FFmpeg durumunu kontrol eder. |
-| `/api/convert` | `POST` | JSON gövdesindeki YouTube URL’si için yeni iş başlatır. |
-| `/api/status/<job_id>` | `GET` | İşin sırasını, ilerlemesini veya hata durumunu döndürür. |
-| `/api/download/<job_id>` | `GET` | Hazır MP3 dosyasını indirir. |
-
-Örnek istek:
-
-```json
-{
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-```
-
-## Docker ile Backend Çalıştırma
-
-```bash
-cd backend
-docker build -t mp3-donusturucu-api .
-docker run --rm -p 8000:8000 mp3-donusturucu-api
-```
-
-Dockerfile, backend için FFmpeg, Node.js, Python paketleri ve Gunicorn kurulumunu içerir. Üretim ortamında backend’in Dockerfile’ı `backend` klasörü bağlamından build edilmelidir.
-
-## Backend’i Render, Railway veya Fly.io’da Yayınlama
-
-Vercel, uzun süren FFmpeg işlemleri için uygun bir backend çalışma ortamı değildir. Bu nedenle backend’i Docker destekleyen bir platforma yayınlamak gerekir.
-
-Önerilen ayarlar:
-
-| Ayar | Değer |
-|---|---|
-| Runtime | Docker |
-| Dockerfile | `backend/Dockerfile` |
-| Docker context | `backend` klasörü |
-| Port | Platformun verdiği `PORT` değişkeni |
-| Health endpoint | `/api/health` |
-| `JOBS_DIR` | `/tmp/mp3_jobs` |
-| `MAX_CONCURRENT_JOBS` | `2` |
-| `JOB_TTL_SECONDS` | `1800` |
-| `DOWNLOAD_TIMEOUT_SECONDS` | `600` |
-
-Backend yayınlandıktan sonra public URL’yi not al. Örnek:
-
-```text
-https://mp3-donusturucu-api.onrender.com
-```
-
-## Vercel’de Frontend Yayını
-
-Bu repository’yi Vercel’e bağlarken frontend’in çalışması için Vercel Project Settings → Environment Variables bölümüne aşağıdaki değişkeni ekle:
-
-| Değişken | Değer |
-|---|---|
-| `BACKEND_URL` | Yayınlanan backend URL’si; sonuna `/` koyma |
-
-Örnek:
-
-```text
-BACKEND_URL=https://mp3-donusturucu-api.onrender.com
-```
-
-Environment variable eklendikten sonra Vercel’de yeniden deploy yapılmalıdır. Frontend, `/api/*` çağrılarını `api/proxy.py` üzerinden backend’e yönlendirir.
-
-## GitHub’a Yükleme
-
-```bash
-git init
-git add .
-git commit -m "MP3 dönüştürücü projesi"
-git branch -M main
-git remote add origin https://github.com/KULLANICI_ADIN/mp3-donusturucu.git
-git push -u origin main
-```
-
-`.gitignore` nedeniyle `.env`, geçici dosyalar, `downloads/` klasörü ve MP3 çıktıları repository’ye yüklenmez.
-
-## Güvenlik ve Kullanım Notları
-
-Kullanıcıdan alınan URL doğrulanır ve işletim sistemi shell komutuna doğrudan eklenmeden subprocess argümanlarıyla işlenir. Gizli anahtarlar veya çerez dosyaları repository’ye yüklenmemelidir. YouTube içeriklerini indirme ve dönüştürme işlemleri ilgili platformun kullanım şartlarına ve telif kurallarına uygun şekilde kullanılmalıdır.
-
-> Bu proje eğitim ve kişisel kullanım amacıyla hazırlanmıştır. İçeriklerin indirilmesi veya dağıtılması konusunda ilgili hak sahiplerinin izinlerine ve platform kurallarına dikkat et.
-
-## Lisans
-
-Bu repository’ye lisans eklenmemiştir. Projeyi herkese açık şekilde dağıtacaksan kullanım koşullarını ayrıca belirleyen bir lisans eklemen önerilir.
+YouTube'dan içerik indirmek YouTube kullanım şartlarına aykırı olabilir; uygulama kişisel
+kullanım için tasarlanmıştır.
