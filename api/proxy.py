@@ -60,9 +60,12 @@ def proxy(path):
         target_path = '/' + path if path else '/'
     params = {k: v for k, v in request.args.items() if k != 'path'}
 
+    # Tarayıcının Accept-Encoding'i (br, zstd) iletilmez: httpx bunları açamazsa
+    # sıkıştırılmış baytlar olduğu gibi döner ve JSON bozulur. httpx kendi
+    # açabildiği değeri (gzip, deflate) gönderir.
     req_headers = {
         k: v for k, v in request.headers.items()
-        if k.lower() not in HOP_BY_HOP and k.lower() != 'x-vercel-forwarded-*'.lower()
+        if k.lower() not in HOP_BY_HOP and k.lower() != 'accept-encoding'
     }
 
     try:
