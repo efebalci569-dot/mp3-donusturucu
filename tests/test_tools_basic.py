@@ -1,5 +1,7 @@
 import os
+import ssl
 import subprocess
+import urllib.request
 
 import pytest
 
@@ -74,3 +76,33 @@ def test_ensure_ffmpeg_missing_fails(tmp_path, monkeypatch):
 def test_hidden_kwargs():
     expected = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
     assert tools.hidden_subprocess_kwargs() == expected
+
+
+def test_download_truncated_response_is_rejected(tmp_path):
+    # Sunucu bağlantıyı erken kapatınca read() b"" döner; yarım dosya kurulu sayılmamalı.
+    dest = tmp_path / "yt-dlp"
+    with pytest.raises(OSError):
+        tools.download("u", dest, lambda p: None,
+                       opener=fake_opener(FakeResponse(b"x" * 1000, declared=10_000)))
+    assert not dest.exists() and not dest.with_name("yt-dlp.part").exists()
+
+
+def test_https_context_uses_certifi_off_windows():
+    # macOS/Linux'ta paketlenmiş Python'un derleme makinesindeki CA yolu kullanıcıda yok.
+    ctx = tools.https_context("darwin")
+    assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.cert_store_stats()["x509_ca"] > 100
+
+
+def test_https_context_windows_uses_system_store():
+    assert tools.https_context("win32").verify_mode == ssl.CERT_REQUIRED
+
+
+def test_default_opener_passes_https_context(monkeypatch):
+    seen = {}
+
+    def fake_urlopen(url, timeout, context):
+        seen["context"] = context
+        return FakeResponse(b"x")
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    tools.urlopen("https://x", timeout=5)
+    assert isinstance(seen["context"], ssl.SSLContext)

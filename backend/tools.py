@@ -3,13 +3,17 @@ import os
 import platform
 import re
 import shutil
+import ssl
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+
+import certifi
 
 log = logging.getLogger('mp3.tools')
 
@@ -71,7 +75,19 @@ def deno_asset(system, machine):
     return f'deno-{target}.zip'
 
 
-def download(url, dest, on_progress, opener=urllib.request.urlopen):
+def https_context(platform=None):
+    # Paketlenmiş Python'un OpenSSL'i CA dosyasını derleme makinesindeki yolda arar; macOS ve
+    # Debian dışı Linux'ta o yol yok. Windows'ta sistem deposu çalışıyor.
+    if (platform or sys.platform) == 'win32':
+        return ssl.create_default_context()
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def urlopen(url, timeout):
+    return urllib.request.urlopen(url, timeout=timeout, context=https_context())
+
+
+def download(url, dest, on_progress, opener=urlopen):
     # Önce .part dosyasına yaz, bitince yerine koy: yarım dosya hiçbir zaman kurulu sayılmaz.
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -88,6 +104,9 @@ def download(url, dest, on_progress, opener=urllib.request.urlopen):
                 done += len(chunk)
                 if total:
                     on_progress(min(100, done * 100 // total))
+            # Bağlantı erken kapanınca read() hata vermeden b"" döner.
+            if total and done != total:
+                raise OSError(f'Eksik indirme: {done}/{total} bayt')
         os.replace(part, dest)
     except BaseException:
         part.unlink(missing_ok=True)
@@ -181,7 +200,7 @@ def _progress_cb(state, name):
     return lambda pct: state.set_step(name, 'downloading', pct)
 
 
-def ensure_ytdlp(bin_dir, state, system, opener=urllib.request.urlopen):
+def ensure_ytdlp(bin_dir, state, system, opener=urlopen):
     dest = Path(bin_dir) / exe_name('yt-dlp', system)
     if not (dest.exists() and dest.stat().st_size > 0):
         state.set_step('ytdlp', 'downloading', 0)
@@ -206,7 +225,7 @@ def _deno_version(path, run):
         return None
 
 
-def ensure_deno(bin_dir, state, system, machine, opener=urllib.request.urlopen, run=subprocess.run):
+def ensure_deno(bin_dir, state, system, machine, opener=urlopen, run=subprocess.run):
     bin_dir = Path(bin_dir)
     dest = bin_dir / exe_name('deno', system)
     if dest.exists():
@@ -232,7 +251,7 @@ def ensure_deno(bin_dir, state, system, machine, opener=urllib.request.urlopen, 
 
 
 def run_setup(state, bin_dir, system=None, machine=None,
-              opener=urllib.request.urlopen, run=subprocess.run):
+              opener=urlopen, run=subprocess.run):
     system = system or platform.system()
     machine = machine or platform.machine()
     state.reset()
@@ -247,6 +266,11 @@ def run_setup(state, bin_dir, system=None, machine=None,
     except (OSError, zipfile.BadZipFile) as e:
         # urllib.error.URLError de OSError'dır
         log.error('kurulum indirme hatası: %s', e)
+        state.fail(SETUP_NETWORK_MSG)
+        return None
+    except Exception:
+        # IncompleteRead gibi beklenmeyen hatalar da "Tekrar dene"yi göstermeli.
+        log.exception('kurulum beklenmeyen hata')
         state.fail(SETUP_NETWORK_MSG)
         return None
     return ToolPaths(ytdlp=ytdlp, deno=deno, ffmpeg=ffmpeg)

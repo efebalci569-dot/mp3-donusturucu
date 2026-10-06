@@ -3,6 +3,7 @@ import logging
 import re
 import urllib.request
 
+import tools
 from version import __version__
 
 log = logging.getLogger('mp3.updates')
@@ -24,7 +25,7 @@ def _fetch_json(url):
         'User-Agent': f'MP3Donusturucum/{__version__}',
         'Accept': 'application/vnd.github+json',
     })
-    with urllib.request.urlopen(req, timeout=10) as r:
+    with tools.urlopen(req, timeout=10) as r:
         return json.loads(r.read().decode('utf-8'))
 
 

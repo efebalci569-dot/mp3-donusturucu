@@ -5,11 +5,11 @@ import zipfile
 
 
 class FakeResponse:
-    def __init__(self, data, fail_after=None):
+    def __init__(self, data, fail_after=None, declared=None):
         self._buf = io.BytesIO(data)
         self._fail_after = fail_after
         self._read = 0
-        self.headers = {'Content-Length': str(len(data))}
+        self.headers = {'Content-Length': str(len(data) if declared is None else declared)}
 
     def read(self, n=-1):
         if self._fail_after is not None and self._read >= self._fail_after:

@@ -13,6 +13,7 @@ import webbrowser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import certifi
 from werkzeug.serving import make_server
 
 import converter
@@ -33,6 +34,18 @@ def _ensure_std_streams():
         sys.stdout = open(os.devnull, 'w')
     if sys.stderr is None:
         sys.stderr = open(os.devnull, 'w')
+
+
+def _restore_linux_library_path():
+    # PyInstaller (Linux) LD_LIBRARY_PATH'i paket klasörüne çevirir; tarayıcı, yt-dlp ve deno
+    # bunu miras alırsa paketteki eski kütüphaneleri yükleyip çökebilir.
+    if not (getattr(sys, 'frozen', False) and sys.platform.startswith('linux')):
+        return
+    original = os.environ.get('LD_LIBRARY_PATH_ORIG')
+    if original:
+        os.environ['LD_LIBRARY_PATH'] = original
+    else:
+        os.environ.pop('LD_LIBRARY_PATH', None)
 
 
 def _setup_logging(log_path):
@@ -69,6 +82,9 @@ def _make_server(setup, lifecycle, retry_setup, update_info):
 def _smoke_test():
     base = Path(tempfile.mkdtemp(prefix='mp3-smoke-'))
     try:
+        if not os.path.isfile(certifi.where()):
+            log.error('CA sertifika paketi yok: %s', certifi.where())
+            return 1
         setup = tools.SetupState()
         ffmpeg = tools.ensure_ffmpeg(paths.bin_dir(base), setup, platform.system())
         r = subprocess.run([str(ffmpeg), '-version'], capture_output=True, timeout=60,
@@ -141,6 +157,7 @@ def _serve(base, inst_file, open_browser):
 
     url = f'http://127.0.0.1:{port}/'
     log.info('MP3 Dönüştürücüm %s başladı: %s', __version__, url)
+    print(f'MP3 Dönüştürücüm açıldı: {url}', flush=True)
     if open_browser:
         try:
             webbrowser.open(url)
@@ -160,6 +177,7 @@ def main(argv=None):
     parser.add_argument('--no-browser', action='store_true')
     args = parser.parse_args(argv)
     _ensure_std_streams()
+    _restore_linux_library_path()
 
     if args.smoke_test:
         _setup_logging(None)

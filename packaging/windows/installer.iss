@@ -16,6 +16,8 @@ DefaultDirName={localappdata}\Programs\MP3Donusturucum
 DefaultGroupName=MP3 Dönüştürücüm
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
+; Uygulamanın penceresi yok; güncellemede çalışan kopya zorla kapatılır (durumsuz, güvenli)
+CloseApplications=force
 OutputDir=..\..\dist
 OutputBaseFilename=MP3Donusturucum-Windows-Kurulum
 Compression=lzma2
@@ -23,6 +25,7 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=MP3 Dönüştürücüm
 UninstallDisplayIcon={app}\MP3Donusturucum.exe
+SetupIconFile=..\icons\app.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
