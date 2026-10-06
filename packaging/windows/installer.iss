@@ -23,6 +23,7 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=MP3 Dönüştürücüm
 UninstallDisplayIcon={app}\MP3Donusturucum.exe
+SetupIconFile=..\icons\app.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
