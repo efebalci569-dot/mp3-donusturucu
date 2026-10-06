@@ -22,3 +22,17 @@ def test_fetch_error():
 def test_parse_version():
     assert updates.parse_version("v1.10.2") == (1, 10, 2)
     assert updates.parse_version("0.0.0-ci.5") is None
+
+
+def test_fetch_json_uses_https_context(monkeypatch):
+    import ssl
+    import urllib.request
+    from helpers import FakeResponse
+    seen = {}
+
+    def fake_urlopen(req, timeout, context):
+        seen["context"] = context
+        return FakeResponse(b'{"tag_name": "v1.0.0"}')
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    assert updates._fetch_json("https://x")["tag_name"] == "v1.0.0"
+    assert isinstance(seen["context"], ssl.SSLContext)

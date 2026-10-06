@@ -30,3 +30,9 @@ def test_packaging_uses_icons():
     assert "app.ico" in spec and "app.icns" in spec
     iss = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8-sig")
     assert r"SetupIconFile=..\icons\app.ico" in iss
+
+
+def test_installer_closes_running_app_on_update():
+    # Uygulamanın penceresi yok; Restart Manager nazikçe kapatamaz, güncelleme dosyaları kilitli kalır.
+    iss = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8-sig")
+    assert "CloseApplications=force" in iss

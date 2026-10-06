@@ -1,3 +1,4 @@
+import http.client
 import subprocess
 import urllib.error
 from pathlib import Path
@@ -117,3 +118,13 @@ def test_updater_rate_limit_and_hidden():
     assert calls[0][0] == [str(Path("/b/yt-dlp")), "-U"]
     assert tools.hidden_subprocess_kwargs().items() <= calls[0][1].items()
     assert len(calls) == 2
+
+
+def test_run_setup_unexpected_error_sets_message(tmp_path, ffmpeg_stub):
+    # http.client.IncompleteRead OSError değildir; ekran "%0"da kilitli kalmamalı.
+    def opener(url, timeout):
+        raise http.client.IncompleteRead(b"")
+    st = tools.SetupState()
+    assert tools.run_setup(st, tmp_path / "bin", "Linux", "x86_64", opener=opener, run=fail_run) is None
+    assert st.to_dict()["error"] == tools.SETUP_NETWORK_MSG
+    assert st.to_dict()["steps"]["ytdlp"]["state"] == "error"
