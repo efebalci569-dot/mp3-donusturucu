@@ -1,4 +1,4 @@
-; Windows kurulum dosyası (Inno Setup 6)
+﻿; Windows kurulum dosyası (Inno Setup 6)
 ; Derleme: iscc /DAppVersion=1.0.0 packaging\windows\installer.iss
 ; Önce: pyinstaller packaging/mp3donusturucum.spec --noconfirm
 

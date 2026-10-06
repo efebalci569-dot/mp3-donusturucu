@@ -1,0 +1,85 @@
+name: Derle ve yayınla
+
+# PR'larda dört platform paketi derlenir (yayınlanmaz); v* etiketinde GitHub Release oluşturulur.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: MP3Donusturucum-Windows-Kurulum.exe
+            exe: dist/MP3Donusturucum/MP3Donusturucum.exe
+          - os: macos-15
+            asset: MP3Donusturucum-Mac-AppleSilicon.zip
+            exe: dist/MP3Donusturucum.app/Contents/MacOS/MP3Donusturucum
+          - os: macos-15-intel
+            asset: MP3Donusturucum-Mac-Intel.zip
+            exe: dist/MP3Donusturucum.app/Contents/MacOS/MP3Donusturucum
+          - os: ubuntu-22.04
+            asset: MP3Donusturucum-Linux-x64.tar.gz
+            exe: dist/MP3Donusturucum/MP3Donusturucum
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r backend/requirements.txt -r requirements-dev.txt
+      - name: Sürümü yaz
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF_NAME#v}"; else V="0.0.0-ci.${GITHUB_RUN_NUMBER}"; fi
+          printf "# CI derlemesinde etiketten yeniden yazılır.\n__version__ = '%s'\n" "$V" > backend/version.py
+          echo "VERSION=$V" >> "$GITHUB_ENV"
+      - run: python -m pytest -q
+      - run: pyinstaller packaging/mp3donusturucum.spec --noconfirm
+      - run: python packaging/smoke_test.py "${{ matrix.exe }}"
+      - name: Paketle (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:VERSION" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Paketle (macOS)
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent dist/MP3Donusturucum.app "dist/${{ matrix.asset }}"
+      - name: Paketle (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czf "dist/${{ matrix.asset }}" -C dist MP3Donusturucum
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Release oluştur
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "MP3 Dönüştürücüm $GITHUB_REF_NAME" \
+            --generate-notes
