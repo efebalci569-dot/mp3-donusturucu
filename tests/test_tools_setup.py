@@ -128,3 +128,32 @@ def test_run_setup_unexpected_error_sets_message(tmp_path, ffmpeg_stub):
     assert tools.run_setup(st, tmp_path / "bin", "Linux", "x86_64", opener=opener, run=fail_run) is None
     assert st.to_dict()["error"] == tools.SETUP_NETWORK_MSG
     assert st.to_dict()["steps"]["ytdlp"]["state"] == "error"
+
+
+def test_update_waits_for_running_job():
+    # yt-dlp çalışırken -U .exe'yi değiştirirse "Error -3 while decompressing data" çıkar.
+    import threading
+    calls = []
+    u = tools.YtdlpUpdater(Path("/b/yt-dlp"), run=lambda args, **kw: calls.append(args))
+    with u.in_use():
+        assert u.trigger() is True
+        threading.Event().wait(0.2)
+        assert calls == []          # iş bitmeden güncelleme başlamamalı
+    wait_until(lambda: len(calls) == 1)
+
+
+def test_job_waits_for_running_update():
+    import threading
+    release = threading.Event()
+    entered = threading.Event()
+    u = tools.YtdlpUpdater(Path("/b/yt-dlp"), run=lambda args, **kw: release.wait(2))
+    assert u.trigger() is True
+    wait_until(lambda: u.is_running)
+
+    def job():
+        with u.in_use():
+            entered.set()
+    threading.Thread(target=job, daemon=True).start()
+    assert not entered.wait(0.2)    # güncelleme sürerken iş yt-dlp'yi başlatmamalı
+    release.set()
+    assert entered.wait(2)
