@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from pathlib import Path
 
 import tools
@@ -32,14 +33,17 @@ _executor = None
 _tools = None
 _jobs_dir = None
 _on_blocked = lambda: None  # noqa: E731
+_ytdlp_guard = nullcontext
 
 
-def configure(tool_paths, jobs_dir, on_blocked=lambda: None):
-    global _tools, _jobs_dir, _on_blocked
+def configure(tool_paths, jobs_dir, on_blocked=lambda: None, ytdlp_guard=nullcontext):
+    # ytdlp_guard: yt-dlp çalışırken güncellemenin .exe'yi değiştirmesini engelleyen kilit.
+    global _tools, _jobs_dir, _on_blocked, _ytdlp_guard
     _tools = tool_paths
     _jobs_dir = Path(jobs_dir)
     _jobs_dir.mkdir(parents=True, exist_ok=True)
     _on_blocked = on_blocked
+    _ytdlp_guard = ytdlp_guard
 
 
 def _get_executor():
@@ -177,32 +181,37 @@ def _fail_with(raw):
 def _run_job(job, url):
     job['status'] = 'processing'
     try:
-        r = _run_info(info_cmd(_tools, url))
-        if r.returncode != 0:
-            _fail_with(_extract_error(r.stderr, 'Video bilgisi alınamadı'))
-        try:
-            info = json.loads(r.stdout.strip().split('\n')[0])
-        except Exception:
-            raise RuntimeError('Video bilgisi çözümlenemedi')
-        title = info.get('title') or 'Bilinmeyen Video'
-        job['title'] = title
-
-        output_tpl = os.path.join(job['dir'], '%(id)s.%(ext)s')
-        ok, last_err = _popen_download(job, download_cmd(_tools, url, output_tpl))
-        mp3_files = [f for f in os.listdir(job['dir']) if f.endswith('.mp3')]
-        if not ok or not mp3_files:
-            _fail_with(last_err)
-
-        size_mb = os.path.getsize(os.path.join(job['dir'], mp3_files[0])) / (1024 * 1024)
-        job['filename'] = f'{sanitize_title(title)}.mp3'
-        job['size_mb'] = round(size_mb, 2)
-        job['progress'] = 100
-        job['status'] = 'done'
+        with _ytdlp_guard():
+            _run_ytdlp_steps(job, url)
     except Exception as e:
         job['status'] = 'error'
         job['error'] = str(e) or 'Dönüştürme başarısız'
         log.warning('job %s FAILED: %s', job['id'], job['error'][:300])
         _cleanup_job_dir(job)
+
+
+def _run_ytdlp_steps(job, url):
+    r = _run_info(info_cmd(_tools, url))
+    if r.returncode != 0:
+        _fail_with(_extract_error(r.stderr, 'Video bilgisi alınamadı'))
+    try:
+        info = json.loads(r.stdout.strip().split('\n')[0])
+    except Exception:
+        raise RuntimeError('Video bilgisi çözümlenemedi')
+    title = info.get('title') or 'Bilinmeyen Video'
+    job['title'] = title
+
+    output_tpl = os.path.join(job['dir'], '%(id)s.%(ext)s')
+    ok, last_err = _popen_download(job, download_cmd(_tools, url, output_tpl))
+    mp3_files = [f for f in os.listdir(job['dir']) if f.endswith('.mp3')]
+    if not ok or not mp3_files:
+        _fail_with(last_err)
+
+    size_mb = os.path.getsize(os.path.join(job['dir'], mp3_files[0])) / (1024 * 1024)
+    job['filename'] = f'{sanitize_title(title)}.mp3'
+    job['size_mb'] = round(size_mb, 2)
+    job['progress'] = 100
+    job['status'] = 'done'
 
 
 def get_job(job_id):

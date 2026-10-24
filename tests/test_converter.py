@@ -108,3 +108,32 @@ def test_subprocesses_hidden(tmp_path, monkeypatch):
     assert ok and job["progress"] == 50
     hidden = tools.hidden_subprocess_kwargs().items()
     assert len(seen) == 2 and all(hidden <= kw.items() for kw in seen)
+
+
+def test_job_runs_ytdlp_inside_guard(tmp_path, monkeypatch):
+    import contextlib
+    inside = []
+    state = {"in": False}
+
+    @contextlib.contextmanager
+    def guard():
+        state["in"] = True
+        try:
+            yield
+        finally:
+            state["in"] = False
+    converter.configure(TP, tmp_path, ytdlp_guard=guard)
+
+    def fake_info(cmd):
+        inside.append(state["in"])
+        return subprocess.CompletedProcess(cmd, 0, '{"title": "T"}', "")
+
+    def fake_dl(job, cmd):
+        inside.append(state["in"])
+        (Path(job["dir"]) / "a.mp3").write_bytes(b"ID3")
+        return True, ""
+    monkeypatch.setattr(converter, "_run_info", fake_info)
+    monkeypatch.setattr(converter, "_popen_download", fake_dl)
+    job = converter._new_job(URL)
+    converter._run_job(job, URL)
+    assert job["status"] == "done" and inside == [True, True]

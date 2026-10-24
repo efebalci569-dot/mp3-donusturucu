@@ -10,6 +10,7 @@ import threading
 import time
 import urllib.request
 import zipfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -279,6 +280,9 @@ def run_setup(state, bin_dir, system=None, machine=None,
 class YtdlpUpdater:
     # YouTube sık değiştiği için yt-dlp arka planda güncellenir; en fazla
     # YTDLP_UPDATE_INTERVAL saniyede bir.
+    # yt-dlp tek dosyalık bir PyInstaller programı ve çalışırken kendi .exe'sinden okur; -U
+    # dosyayı o sırada değiştirirse "Error -3 while decompressing data" ile düşer. Bu yüzden
+    # güncelleme, yt-dlp'yi kullanan işlerle (in_use) aynı anda çalışmaz.
     def __init__(self, ytdlp, clock=time.monotonic, run=subprocess.run):
         self._ytdlp = Path(ytdlp)
         self._clock = clock
@@ -286,6 +290,22 @@ class YtdlpUpdater:
         self._lock = threading.Lock()
         self._running = False
         self._last_start = None
+        self._gate = threading.Condition()
+        self._users = 0
+        self._updating = False
+
+    @contextmanager
+    def in_use(self):
+        with self._gate:
+            while self._updating:
+                self._gate.wait()
+            self._users += 1
+        try:
+            yield
+        finally:
+            with self._gate:
+                self._users -= 1
+                self._gate.notify_all()
 
     @property
     def is_running(self):
@@ -305,6 +325,10 @@ class YtdlpUpdater:
         return True
 
     def _update(self):
+        with self._gate:
+            while self._users:
+                self._gate.wait()
+            self._updating = True
         try:
             self._run([str(self._ytdlp), '-U'], capture_output=True, timeout=300,
                       **hidden_subprocess_kwargs())
@@ -312,5 +336,8 @@ class YtdlpUpdater:
         except Exception as e:
             log.warning('yt-dlp güncellenemedi: %s', e)
         finally:
+            with self._gate:
+                self._updating = False
+                self._gate.notify_all()
             with self._lock:
                 self._running = False

@@ -121,7 +121,8 @@ def _serve(base, inst_file, open_browser):
         tp = tools.run_setup(setup, bin_dir)
         if tp:
             updater = tools.YtdlpUpdater(tp.ytdlp)
-            converter.configure(tp, jobs_dir, on_blocked=updater.trigger)
+            converter.configure(tp, jobs_dir, on_blocked=updater.trigger,
+                                ytdlp_guard=updater.in_use)
             updater.trigger()
             log.info('kurulum tamam')
 
